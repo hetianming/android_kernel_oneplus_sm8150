@@ -9,18 +9,17 @@ jobs:
       - name: Clone Kernel Source
         uses: actions/checkout@v4
         with:
-          ref: 16.0
           path: kernel
-          fetch-tags: false
 
       - name: Install Build Dependencies
         run: |
           sudo apt update -y
           sudo apt install -y git flex bison gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev libelf-dev make zip
 
-      - name: Download crDroid Clang
+      - name: Download crDroid Clang Toolchain
         run: |
-          git clone https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git clang
+          rm -rf clang
+          git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git clang
 
       - name: Compile Kernel Image
         run: |
