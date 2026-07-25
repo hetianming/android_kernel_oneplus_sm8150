@@ -16,18 +16,16 @@ jobs:
           sudo apt update -y
           sudo apt install git flex bison libssl-dev libelf-dev make zip wget tar xz-utils -y
 
-      - name: Download LLVM Clang 18.1.8 Official Package
-        run: |
-          rm -rf clang clang.tar.xz
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz -O clang.tar.xz
-          mkdir clang
-          tar -xf clang.tar.xz -C clang --strip-components=1
 
       - name: Build Kernel Image
-        run: |
-          export ARCH=arm64
-          export PATH=$PWD/clang/bin:$PATH
-          cd kernel
-          make clean && make mrproper
-          make vendor/sm8150-perf_defconfig
-          make -j$(nproc)
+  run: |
+    export ARCH=arm64
+    export PATH=$PWD/clang/bin:$PATH
+    cd kernel
+    make clean && make mrproper
+    # 加载厂商defconfig
+    make vendor/sm8150-perf_defconfig
+    # 完整语句关闭强堆栈保护（修复截断语法错误）
+    scripts/config --disable CONFIG_CC_STACKPROTECTOR_STRONG
+    # 多线程编译内核
+    make -j$(nproc)
