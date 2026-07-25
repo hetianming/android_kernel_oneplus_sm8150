@@ -14,12 +14,15 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt update -y
-          sudo apt install -y git flex bison gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev libelf-dev make zip
+          sudo apt install -y git flex bison gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev libelf-dev make zip wget tar
 
-      - name: Download crDroid Clang
+      # 改用LineageOS内核clang压缩包，不用git克隆，规避域名解析问题
+      - name: Download Kernel Clang Toolchain
         run: |
           rm -rf clang
-          git clone --depth=1 https://mirror.ghproxy.com/https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git clang
+          wget https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86-clang-r416183b/releases/download/latest/clang.tar.gz
+          mkdir clang
+          tar -xf clang.tar.gz -C clang --strip-components=1
 
       - name: Compile Kernel Image
         run: |
