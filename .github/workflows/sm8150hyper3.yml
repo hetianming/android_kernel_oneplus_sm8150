@@ -29,5 +29,5 @@ jobs:
           export PATH=$PWD/clang/bin:$PATH
           cd kernel
           make clean && make mrproper
-          make sm8150-perf_defconfig
+          make vendor/sm8150-perf_defconfig
           make -j$(nproc)
