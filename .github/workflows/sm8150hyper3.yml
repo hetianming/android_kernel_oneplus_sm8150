@@ -11,20 +11,19 @@ jobs:
         with:
           path: kernel
 
-      - name: Install Build Dependencies
+      - name: Install Basic Dependencies
         run: |
           sudo apt update -y
-          sudo apt install -y git flex bison gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev libelf-dev make zip wget tar
+          sudo apt install git flex bison libssl-dev libelf-dev make zip wget tar xz-utils -y
 
-      # AOSP官方稳定clang，链接永久有效
-      - name: Download AOSP Clang Toolchain
+      - name: Download LLVM Clang 18.1.8 Official Package
         run: |
-          rm -rf clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-14.0.0_r48/clang-r498229.tar.gz -O clang.tar.gz
+          rm -rf clang clang.tar.xz
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz -O clang.tar.xz
           mkdir clang
-          tar -xf clang.tar.gz -C clang --strip-components=1
+          tar -xf clang.tar.xz -C clang --strip-components=1
 
-      - name: Compile Kernel Image
+      - name: Build Kernel Image
         run: |
           export ARCH=arm64
           export PATH=$PWD/clang/bin:$PATH
