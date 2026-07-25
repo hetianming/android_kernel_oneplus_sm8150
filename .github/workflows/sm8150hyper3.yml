@@ -29,5 +29,5 @@ jobs:
           export PATH=$PWD/clang/bin:$PATH
           cd kernel
           make clean && make mrproper
-          make oneplus_defconfig
+          make sm8150-perf_defconfig
           make -j$(nproc)
