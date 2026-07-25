@@ -1,31 +1,45 @@
-name: Build SM8150 HyperOS Kernel
+name: 内核编译
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  compile:
-    runs-on: ubuntu-22.04
+  build-kernel:
+    runs-on: ubuntu-latest
     steps:
-      - name: Clone Kernel Source
+      # 拉取内核源码
+      - name: 克隆内核源代码
         uses: actions/checkout@v4
         with:
-          path: kernel
+          fetch-depth: 0
 
+      # 安装系统依赖
       - name: Install Basic Dependencies
         run: |
           sudo apt update -y
-          sudo apt install git flex bison libssl-dev libelf-dev make zip wget tar xz-utils -y
+          sudo apt install git flex bison build-essential libssl-dev libelf-dev -y
 
+      # LineageOS 现存可用clang工具链
+      - name: Download Lineage Clang r416183b
+        run: |
+          rm -rf clang
+          git clone https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b clang --depth=1
 
+      # 编译内核
       - name: Build Kernel Image
-  run: |
-    export ARCH=arm64
-    export PATH=$PWD/clang/bin:$PATH
-    cd kernel
-    make clean && make mrproper
-    # 加载厂商defconfig
-    make vendor/sm8150-perf_defconfig
-    # 完整语句关闭强堆栈保护（修复截断语法错误）
-    scripts/config --disable CONFIG_CC_STACKPROTECTOR_STRONG
-    # 多线程编译内核
-    make -j$(nproc)
+        run: |
+          export ARCH=arm64
+          export PATH=$PWD/clang/bin:$PATH
+          cd kernel
+          make clean && make mrproper
+          make vendor/sm8150-perf_defconfig
+          scripts/config --disable CONFIG_CC_STACKPROTECTOR_STRONG
+          make -j$(nproc)
+
+      # 上传编译产物（可选）
+      - name: 上传内核镜像
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-Boot
+          path: kernel/arch/arm64/boot/Image.gz-dtb
