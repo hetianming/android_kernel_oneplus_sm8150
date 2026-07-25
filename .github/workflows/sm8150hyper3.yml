@@ -16,11 +16,11 @@ jobs:
           sudo apt update -y
           sudo apt install -y git flex bison gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev libelf-dev make zip wget tar
 
-      # 改用LineageOS内核clang压缩包，不用git克隆，规避域名解析问题
-      - name: Download Kernel Clang Toolchain
+      # AOSP官方稳定clang，链接永久有效
+      - name: Download AOSP Clang Toolchain
         run: |
           rm -rf clang
-          wget https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86-clang-r416183b/releases/download/latest/clang.tar.gz
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-14.0.0_r48/clang-r498229.tar.gz -O clang.tar.gz
           mkdir clang
           tar -xf clang.tar.gz -C clang --strip-components=1
 
