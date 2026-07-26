@@ -1,45 +1,66 @@
-name: 内核编译
+name: Build OnePlus SM8150 Kernel (LineageOS)
+
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ 16 ]      # 或你选择的分支
+  pull_request:
+  workflow_dispatch:              # 允许手动触发
 
 jobs:
-  build-kernel:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-22.04
     steps:
-      # 拉取内核源码
-      - name: 克隆内核源代码
+      - name: Checkout kernel source
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          repository: LineageOS/android_kernel_oneplus_sm8150
+          ref: 16          # 可改为 lineage-21 等
 
-      # 安装系统依赖
-      - name: Install Basic Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt update -y
-          sudo apt install git flex bison build-essential libssl-dev libelf-dev -y
+          sudo apt update
+          sudo apt install -y git wget curl python3 xz-utils flex bison \
+            openssl libssl-dev libelf-dev libudev-dev libpci-dev \
+            libiberty-dev autoconf llvm lld clang gcc g++ make bc cpio \
+            build-essential kmod device-tree-compiler zip
 
-      # LineageOS 现存可用clang工具链
-      - name: Download Lineage Clang r416183b
+      - name: Setup toolchain (Clang + GCC)
         run: |
-          rm -rf clang
-          git clone https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b clang --depth=1
+          # Clang from AOSP
+          mkdir -p $HOME/toolchain
+          cd $HOME/toolchain
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+          tar -xzf clang-r487747c.tar.gz
+          echo "$HOME/toolchain/bin" >> $GITHUB_PATH
 
-      # 编译内核
-      - name: Build Kernel Image
+          # GCC aarch64
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
+          echo "CROSS_COMPILE=$HOME/toolchain/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9/bin/aarch64-linux-android-" >> $GITHUB_ENV
+
+      - name: Configure kernel
         run: |
-          export ARCH=arm64
-          export PATH=$PWD/clang/bin:$PATH
-          cd kernel
-          make clean && make mrproper
-          make vendor/sm8150-perf_defconfig
-          scripts/config --disable CONFIG_CC_STACKPROTECTOR_STRONG
-          make -j$(nproc)
+          make O=out ARCH=arm64 vendor/sm8150-perf_defconfig
+          # 如果需要调整 HyperOS 相关选项，可以在此处加入脚本修改 .config
 
-      # 上传编译产物（可选）
-      - name: 上传内核镜像
+      - name: Build kernel
+        run: |
+          make -j$(nproc) O=out ARCH=arm64 CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=${{ env.CROSS_COMPILE }}
+
+      - name: Prepare AnyKernel3 package
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          cp out/arch/arm64/boot/dtbo.img AnyKernel3/ 2>/dev/null || true
+          cd AnyKernel3
+          echo "kernel=Image.gz-dtb" >> anykernel.sh
+          echo "device.name=guacamole" >> anykernel.sh   # 根据你的设备修改
+          # 如需修改其他参数，请编辑 anykernel.sh
+          zip -r9 ../Kernel-Build.zip *
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-Boot
-          path: kernel/arch/arm64/boot/Image.gz-dtb
+          name: kernel-build
+          path: Kernel-Build.zip
