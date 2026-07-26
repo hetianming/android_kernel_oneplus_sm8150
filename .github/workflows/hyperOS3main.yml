@@ -1,0 +1,59 @@
+name: Build crDroid SM8150 Kernel (HyperOS A16)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          repository: crdroidandroid/android_kernel_oneplus_sm8150
+          ref: 16.0
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git wget curl flex bison openssl libssl-dev \
+            libelf-dev libudev-dev libpci-dev autoconf llvm lld clang \
+            gcc g++ make bc cpio build-essential kmod device-tree-compiler zip
+
+      - name: Setup Clang (Google AOSP)
+        run: |
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz -O clang.tar.gz
+          mkdir -p clang
+          tar -xf clang.tar.gz -C clang
+          echo "$(pwd)/clang/bin" >> $GITHUB_PATH
+
+      - name: Setup GCC (AArch64)
+        run: |
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
+          echo "CROSS_COMPILE=$(pwd)/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9/bin/aarch64-linux-android-" >> $GITHUB_ENV
+
+      - name: Configure kernel
+        run: |
+          make O=out ARCH=arm64 vendor/sm8150-perf_defconfig
+
+      - name: Build kernel
+        run: |
+          make -j$(nproc) O=out ARCH=arm64 CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=${{ env.CROSS_COMPILE }}
+
+      - name: Package for AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          cp out/arch/arm64/boot/dtbo.img AnyKernel3/ 2>/dev/null || true
+          cd AnyKernel3
+          echo "kernel=Image.gz-dtb" > anykernel.sh
+          echo "device.name=guacamole" >> anykernel.sh   # 🔧 请根据您的机型修改
+          zip -r9 ../kernel-hyperos.zip *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: kernel-hyperos.zip
