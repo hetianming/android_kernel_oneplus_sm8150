@@ -23,8 +23,10 @@ jobs:
 
       - name: Setup Clang
         run: |
-          git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git
-          echo "$(pwd)/android_prebuilts_clang_host_linux-x86_clang-r547694/bin" >> $GITHUB_PATH
+      wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-Linux-X64.tar.xz -O /tmp/clang.tar.gz
+mkdir -p clang
+      tar -xf /tmp/clang.tar.gz -C clang
+      export PATH=$PWD/clang/bin:$PATH
 
       - name: Setup GCC (AArch64)
         run: |
