@@ -21,13 +21,16 @@ jobs:
             libiberty-dev autoconf llvm lld clang gcc g++ make bc cpio \
             build-essential kmod device-tree-compiler zip
 
-      - name: Setup Clang
+      - name: Install LLVM Clang 22.1.8
         run: |
-      wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-Linux-X64.tar.xz -O /tmp/clang.tar.gz
-mkdir -p clang
-      tar -xf /tmp/clang.tar.gz -C clang
-      export PATH=$PWD/clang/bin:$PATH
-
+          rm -rf clang
+          mkdir -p clang
+          # 指定输出到/tmp，保证tar能读取
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-linux-gnu.tar.gz -O /tmp/clang.tar.gz
+          # 解压到clang文件夹
+          tar -xf /tmp/clang.tar.gz -C clang --strip-components=1
+          # 修复PATH空格问题
+          export PATH=$PWD/clang/bin:$PATH
       - name: Setup GCC (AArch64)
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
