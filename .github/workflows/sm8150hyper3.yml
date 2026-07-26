@@ -1,23 +1,23 @@
-# 一加SM8150(7/7Pro/7T) HyperOS3内核编译工作流
+# 一加SM8150(7/7Pro/7T/7TPro) HyperOS3 内核编译工作流
 name: Build Kernel for OnePlus SM8150 (HyperOS3)
 
-# 仅手动触发编译
+# 仅支持手动点击触发编译
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    # 运行环境 Ubuntu22.04
+    # 编译运行系统：Ubuntu22.04
     runs-on: ubuntu-22.04
     steps:
-      # 1.拉取LineageOS16.0内核源码
+      # 步骤1：拉取LineageOS 16.0 一加SM8150内核源码
       - name: Checkout kernel source
         uses: actions/checkout@v4
         with:
           repository: LineageOS/android_kernel_oneplus_sm8150
           ref: 16.0
 
-      # 2.安装编译依赖工具链
+      # 步骤2：安装全套编译依赖包
       - name: Install dependencies
         run: |
           sudo apt update
@@ -26,14 +26,62 @@ jobs:
             libiberty-dev autoconf llvm lld clang gcc g++ make bc cpio \
             build-essential kmod device-tree-compiler zip
 
-      # 3.下载并配置LLVM Clang22.1.8编译器
+      # 步骤3：下载并部署 LLVM Clang 22.1.8 编译器
       - name: Install LLVM Clang 22.1.8
         run: |
           rm -rf clang /tmp/clang.tar.gz
           mkdir -p clang
-          # 下载clang压缩包至临时目录
+          # 下载官方clang压缩包到临时目录
           wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-linux-gnu.tar.gz -O /tmp/clang.tar.gz
-          # 解压clang，去除外层一级目录
+          # 解压，去除压缩包自带外层文件夹
+          tar -xf /tmp/clang.tar.gz -C clang --strip-components=1
+          # 将clang工具链路径写入全局环境变量，后续步骤自动生效
+          echo "PATH=$PWD/clang/bin:$PATH" >> $GITHUB_ENV
+
+      # 步骤4：部署AArch64 GCC 4.9 交叉编译器
+      - name: Setup GCC (AArch64 4.9)
+        run: |
+          rm -rf android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
+          # 写入交叉编译前缀全局变量
+          echo "CROSS_COMPILE=$(pwd)/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9/bin/aarch64-linux-android-" >> $GITHUB_ENV
+
+      # 步骤5：加载内核官方配置，关闭与新版clang不兼容的强堆栈保护
+      - name: Configure kernel & disable incompatible stack protector
+        run: |
+          make O=out ARCH=arm64 vendor/sm8150-perf_defconfig
+          scripts/config --file out/.config --disable CONFIG_CC_STACKPROTECTOR_STRONG
+
+      # 步骤6：完整编译内核镜像，纯LLVM编译链路
+      - name: Build kernel image
+        run: |
+          make -j$(nproc) O=out ARCH=arm64 CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=${{ env.CROSS_COMPILE }}
+
+      # 步骤7：使用AnyKernel3打包可直接卡刷的zip安装包
+      - name: Package with AnyKernel3
+        run: |
+          rm -rf AnyKernel3 kernel-hyperos.zip
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3
+          # 复制编译完成的内核镜像
+          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          # dtbo镜像不存在时不抛出报错，兼容不同内核分支
+          cp out/arch/arm64/boot/dtbo.img AnyKernel3/ 2>/dev/null || true
+          cd AnyKernel3
+          # 写入卡刷脚本配置
+          echo "kernel=Image.gz-dtb" >> anykernel.sh
+          # 机型代号说明：guacamole=一加7Pro
+          echo "device.name=guacamole" >> anykernel.sh
+          # 高压缩率打包内核卡刷包
+          zip -r9 ../kernel-hyperos.zip *
+
+      # 步骤8：上传编译成品zip文件到工作流产物（修复112行报错）
+      - name: Upload flashable kernel zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: SM8150-HyperOS3-Kernel
+          path: kernel-hyperos.zip
           tar -xf /tmp/clang.tar.gz -C clang --strip-components=1
           # 将clang路径写入全局环境变量，后续步骤生效
           echo "PATH=$PWD/clang/bin:$PATH" >> $GITHUB_ENV
