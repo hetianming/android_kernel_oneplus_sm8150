@@ -1,10 +1,7 @@
-name: Build OnePlus SM8150 Kernel (LineageOS)
+name: Build Kernel for OnePlus SM8150 (HyperOS)
 
 on:
-  push:
-    branches: [ 16 ]      # 或你选择的分支
-  pull_request:
-  workflow_dispatch:              # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: LineageOS/android_kernel_oneplus_sm8150
-          ref: 16          # 可改为 lineage-21 等
+          ref: 16
 
       - name: Install dependencies
         run: |
@@ -24,20 +21,19 @@ jobs:
             libiberty-dev autoconf llvm lld clang gcc g++ make bc cpio \
             build-essential kmod device-tree-compiler zip
 
-      - name: Setup Clang (crDroid)
-  run: |
-    git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git
-    # 设置到 PATH
-    echo "$(pwd)/android_prebuilts_clang_host_linux-x86_clang-r547694/bin" >> $GITHUB_PATH
+      - name: Setup Clang
+        run: |
+          git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git
+          echo "$(pwd)/android_prebuilts_clang_host_linux-x86_clang-r547694/bin" >> $GITHUB_PATH
 
-          # GCC aarch64
+      - name: Setup GCC (AArch64)
+        run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
-          echo "CROSS_COMPILE=$HOME/toolchain/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9/bin/aarch64-linux-android-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=$(pwd)/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9/bin/aarch64-linux-android-" >> $GITHUB_ENV
 
       - name: Configure kernel
         run: |
           make O=out ARCH=arm64 vendor/sm8150-perf_defconfig
-          # 如果需要调整 HyperOS 相关选项，可以在此处加入脚本修改 .config
 
       - name: Build kernel
         run: |
@@ -45,19 +41,18 @@ jobs:
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=${{ env.CROSS_COMPILE }}
 
-      - name: Prepare AnyKernel3 package
+      - name: Package for AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3
           cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
           cp out/arch/arm64/boot/dtbo.img AnyKernel3/ 2>/dev/null || true
           cd AnyKernel3
           echo "kernel=Image.gz-dtb" >> anykernel.sh
-          echo "device.name=guacamole" >> anykernel.sh   # 根据你的设备修改
-          # 如需修改其他参数，请编辑 anykernel.sh
-          zip -r9 ../Kernel-Build.zip *
+          echo "device.name=guacamole" >> anykernel.sh   # 按你的设备修改
+          zip -r9 ../kernel-hyperos.zip *
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: kernel-build
-          path: Kernel-Build.zip
+          path: kernel-hyperos.zip
