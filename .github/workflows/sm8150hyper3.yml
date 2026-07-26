@@ -24,14 +24,11 @@ jobs:
             libiberty-dev autoconf llvm lld clang gcc g++ make bc cpio \
             build-essential kmod device-tree-compiler zip
 
-      - name: Setup toolchain (Clang + GCC)
-        run: |
-          # Clang from AOSP
-          mkdir -p $HOME/toolchain
-          cd $HOME/toolchain
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
-          tar -xzf clang-r487747c.tar.gz
-          echo "$HOME/toolchain/bin" >> $GITHUB_PATH
+      - name: Setup Clang (crDroid)
+  run: |
+    git clone --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547694.git
+    # 设置到 PATH
+    echo "$(pwd)/android_prebuilts_clang_host_linux-x86_clang-r547694/bin" >> $GITHUB_PATH
 
           # GCC aarch64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9
